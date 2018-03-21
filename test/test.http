@@ -1,0 +1,14 @@
+@url = http://localhost:8999
+@sendAddr = send
+@recAddr = rec
+
+### 提交交易
+
+POST {{url}}/transaction HTTP/1.1
+Content-Type: application/json;utf-8;
+
+{
+  "sendAddr": "{{sendAddr}}",
+  "recAddr": "{{recAddr}}",
+  "value": 100
+}

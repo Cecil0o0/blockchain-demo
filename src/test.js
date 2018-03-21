@@ -3,15 +3,17 @@ import { Block } from './block'
 
 // test pow
 const testPow = () => {
+  console.log('验证工作量')
   const block = BlockChain.getIns().genesisBlock
   const hash = Block.computeSha256(block)
-  console.log(hash)
-  console.log(Number(BlockChain.getIns().target).toString(16))
-  console.log(BlockChain.isPowValid(hash))
+  console.log('计算得到的hash值（16进制）：' + hash)
+  console.log('工作量证明标准（16进制）：' + Number(BlockChain.getIns().target).toString(16))
+  console.log('工作量是否有效：' + BlockChain.isPowValid(hash))
 }
 
 // test mine
 const testMine = () => {
+  console.log('挖矿')
   const bc = BlockChain.init(1000)
 
   BlockChain.submitTransaction('甲', '乙', 1)
