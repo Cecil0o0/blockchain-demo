@@ -7,16 +7,19 @@
 
 import { Transaction } from './transaction'
 import { Block } from './block'
+import { NodeAction } from './node'
 import BigNumber from 'bignumber.js'
 import fs from 'fs'
 import path from 'path'
 
+const COINBASE_SENDER = '<COINBASE>'
+const COINBASE_REWARD = 50
+
 const difficulty = 4
 const state = {
   nodeId: 0,
-  blocks: [
-    Block.generate(100, [], 0, '')
-  ],
+  blocks: [],
+  nodes: [],
   transactionPool: [],
   genesisBlock: Block.generate(0, [], 0, ''),
   target: 2 ** (256 - difficulty),
@@ -25,13 +28,23 @@ const state = {
 
 export const BlockChain = {
   // 初始化结点
-  init (id) {
+  init: (id) => {
     state.nodeId = id
     state.storagePath = path.resolve(__dirname, '../data/', `${state.nodeId}.blockchain`)
+    state.blocks.push(state.genesisBlock)
     return state
   },
+  // 注册节点
+  register: (id, url) => {
+    if (state.nodes.find(node => node.id === id)) {
+      return false
+    } else {
+      state.nodes.push(NodeAction.generate(id, url))
+      return true
+    }
+  },
   // 加载存储区块链或初始化一个区块链
-  load () {
+  load: () => {
     try {
       state.blocks = JSON.parse(fs.readFileSync(state.storagePath, 'utf-8'))
     } catch (e) {
@@ -42,30 +55,36 @@ export const BlockChain = {
     }
   },
   // 存储区块链到本地
-  save () {
+  save: () => {
     fs.writeFileSync(state.storagePath, JSON.stringify(state.blocks), 'utf-8')
   },
   // 验证区块链是否合法
-  verify () {
-    if (!state.blocks.length) {
-      console.log('区块链不能为空')
-    }
-    if (JSON.stringify(state.genesisBlock) !== JSON.stringify(state.blocks[0])) {
-      throw new Error('初代区块链数据有误')
-    }
-    state.blocks.forEach((item, index) => {
-      // 验证上一个区块
-      if (index > 0 && item.prevBlock !== Block.computeSha256(state.blocks[index - 1])) {
-        throw new Error('非法的上一级区块')
+  verify: (blocks) => {
+    try {
+      if (!blocks.length) {
+        console.log('blocks can\'t be empty !')
+        throw new Error('blocks can\'t be empty !')
       }
-      //
-      if (!BlockChain.idPowValid(Block.computeSha256(item))) {
-        throw new Error('无效的PoW')
+      if (JSON.stringify(state.genesisBlock) !== JSON.stringify(blocks[0])) {
+        throw new Error('genesis block data error !')
       }
-    })
+      blocks.forEach((item, index) => {
+        // 验证上一个区块
+        if (index > 0 && item.prevBlock !== Block.computeSha256(blocks[index - 1])) {
+          throw new Error('invalid prev block sha256')
+        }
+        //
+        if (!BlockChain.idPowValid(Block.computeSha256(item))) {
+          throw new Error('invalid PoW')
+        }
+      })
+      return true
+    } catch (e) {
+      return false
+    }
   },
   // 获取state实例
-  getIns () {
+  getIns: () => {
     return state
   },
   // 提交交易
@@ -73,7 +92,7 @@ export const BlockChain = {
     state.transactionPool.push(Transaction.generate(send, rec, val))
   },
   // 清除交易
-  clearTransactions () {
+  clearTransactions: () => {
     state.transactionPool = 0
   },
   // 获取交易池
@@ -98,14 +117,15 @@ export const BlockChain = {
     }
   },
   // 添加区块链
-  append (block) {
+  append: (block) => {
     state.blocks.push(block)
-    // fs.writeFileSync('stored.json', JSON.stringify(state.blocks), {
-    //   flag: 'w'
-    // })
+  },
+  // 获取所有节点
+  getNodes: () => {
+    return state.nodes.slice()
   },
   // 验证工作量
-  isPowValid (pow) {
+  isPowValid: (pow) => {
     try {
       if (!pow.startswitch('0x')) {
         pow = '0x' + pow
@@ -116,8 +136,11 @@ export const BlockChain = {
     }
   },
   // 挖矿
-  mine (transactions = []) {
+  mine: (transactions = []) => {
     let prevBlock = state.blocks.slice(-1)[0] || {}
+
+    transactions = [Transaction.generate(COINBASE_SENDER, state.nodeId, COINBASE_REWARD), ...transactions]
+
     const newBlock = Block.generate(prevBlock.blockNumber !== undefined ? prevBlock.blockNumber + 1 : 0, transactions.slice(), 0, Block.computeSha256(prevBlock))
     while (true) {
       let hash = Block.computeSha256(newBlock)
@@ -130,7 +153,26 @@ export const BlockChain = {
     }
 
     this.append(newBlock)
-    this.clearTransactions()
     return newBlock
+  },
+  // 区块链共识
+  consensus: (blockChains) => {
+    let maxLength = 0,
+      candidateIndex = -1
+
+    blockChains.forEach((item, index) => {
+      if (item.length > maxLength && this.verify(item)) {
+        maxLength = item.length
+        candidateIndex = index
+      }
+    })
+
+    if (candidateIndex > -1 && (maxLength >= state.blocks.length || !this.verify(state.blocks))) {
+      state.blocks = [...blockChains[candidateIndex]]
+      this.save()
+      return true
+    }
+
+    return false
   }
 }

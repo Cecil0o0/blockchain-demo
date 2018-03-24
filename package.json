@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/Cecil0o0/blockchain-demo#readme",
   "dependencies": {
+    "axios": "^0.18.0",
     "bignumber.js": "^6.0.0",
     "js-sha256": "^0.9.0",
     "koa": "^2.5.0",
@@ -29,6 +30,7 @@
     "uuid": "^3.2.1"
   },
   "devDependencies": {
+    "args": "^3.0.8",
     "babel-cli": "^6.26.0",
     "babel-plugin-external-helpers": "^6.22.0",
     "babel-preset-env": "^1.6.1",

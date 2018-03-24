@@ -59,6 +59,16 @@ var Block = {
   }
 };
 
+var toConsumableArray = function (arr) {
+  if (Array.isArray(arr)) {
+    for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) arr2[i] = arr[i];
+
+    return arr2;
+  } else {
+    return Array.from(arr);
+  }
+};
+
 /**
  * block-chain
  * @nodeId: 节点id
@@ -66,10 +76,13 @@ var Block = {
  * @pool: 交易池
  */
 
+var COINBASE_SENDER = '<COINBASE>';
+var COINBASE_REWARD = 50;
+
 var difficulty = 4;
 var state$2 = {
   nodeId: 0,
-  blocks: [Block.generate(100, [], 0, '')],
+  blocks: [],
   transactionPool: [],
   genesisBlock: Block.generate(0, [], 0, ''),
   target: Math.pow(2, 256 - difficulty),
@@ -81,6 +94,7 @@ var BlockChain = {
   init: function init(id) {
     state$2.nodeId = id;
     state$2.storagePath = path.resolve(__dirname, '../data/', state$2.nodeId + '.blockchain');
+    state$2.blocks.push(state$2.genesisBlock);
     return state$2;
   },
 
@@ -159,9 +173,6 @@ var BlockChain = {
   // 添加区块链
   append: function append(block) {
     state$2.blocks.push(block);
-    // fs.writeFileSync('stored.json', JSON.stringify(state.blocks), {
-    //   flag: 'w'
-    // })
   },
 
   // 验证工作量
@@ -181,6 +192,9 @@ var BlockChain = {
     var transactions = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
 
     var prevBlock = state$2.blocks.slice(-1)[0] || {};
+
+    transactions = [Transaction.generate(COINBASE_SENDER, state$2.nodeId, COINBASE_REWARD)].concat(toConsumableArray(transactions));
+
     var newBlock = Block.generate(prevBlock.blockNumber !== undefined ? prevBlock.blockNumber + 1 : 0, transactions.slice(), 0, Block.computeSha256(prevBlock));
     while (true) {
       var hash = Block.computeSha256(newBlock);
@@ -193,7 +207,6 @@ var BlockChain = {
     }
 
     this.append(newBlock);
-    this.clearTransactions();
     return newBlock;
   }
 };
