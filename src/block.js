@@ -8,18 +8,18 @@ import sha from 'js-sha256'
 const state = {
   blockNumber: 0,
   transactions: [],
-  timestamp: Date.now(),
   nonce: 0,
-  prevBlock: ''
+  prevBlock: '',
+  timestamp: Date.now()
 }
 
 export const Block = {
-  generate: (blockNumber, transactions, nonce, prevBLock) => {
+  generate: (blockNumber, transactions, nonce, prevBLock, isGenisis = false) => {
     state.blockNumber = blockNumber
     state.transactions = JSON.stringify(transactions)
-    state.timestamp = Date.now()
     state.nonce = nonce
     state.prevBlock = prevBLock
+    state.timestamp = isGenisis ? new Date('2018-03-25 2:20').getTime() : Date.now()
     return Object.assign({}, state)
   },
   computeSha256: state => {

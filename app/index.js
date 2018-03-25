@@ -1,7 +1,8 @@
 const Koa = require('koa')
 const Router = require('koa-router')
 const BodyParser = require('koa-body-parser')
-const BlockChain = require('./dist/blockChain').BlockChain
+const BlockChain = require('../dist/blockChain').BlockChain
+const axios = require('axios')
 const args = require('args')
 args.option('port', 'The port on which the app will be running', 8999)
 const flags = args.parse(process.argv)
@@ -12,6 +13,7 @@ const router = new Router()
 // 初始化blockChain
 BlockChain.init(1000)
 
+// 使用body-parser中间件
 app.use(BodyParser())
 
 // 获取所有节点
@@ -19,9 +21,27 @@ router.get('/nodes', async (ctx, next) => {
   ctx.response.body = JSON.stringify(BlockChain.getNodes())
 })
 
+// 区块链共识consensus
+router.put('/nodes/consensus', async (ctx, next) => {
+  let reqs = BlockChain.getNodes().map(node => axios.get(`${node.url}/blocks`))
+
+  if (!reqs.length) {
+    ctx.response.body = 'no node need to sync'
+  } else {
+    await axios.all(reqs).then((ress) => {
+      const blockChains = ress.map(v => v.data)
+      if (BlockChain.consensus(blockChains)) {
+        ctx.response.body = 'get consensus'
+      } else {
+        ctx.response.body = 'no consensus get'
+      }
+    })
+  }
+})
+
 // 注册节点
 router.post('/node', async (ctx, next) => {
-  const { id, url } = ctx.params
+  const { id, url } = ctx.request.body
   if (!id || !url) {
     ctx.response.body = 'invalid parmeter'
   } else {
@@ -67,22 +87,6 @@ router.get('/mine', async (ctx, next) => {
   ctx.response.body = `mine new block ${BlockChain.mine(BlockChain.getTransactions()).blockNumber}`
 })
 
-// 区块链共识consensus
-router.put('/nodes/consensus', async (ctx, next) => {
-  let reqs = BlockChain.getNodes().map(node => axios.get(`${node.url}/blocks`))
-
-  if (!reqs.length) {
-    ctx.response.body = 'no node need to sync'
-  } else {
-    await axios.all(reqs).then(axios.spread((...blockChains) => {
-      if (blockChain.consensus(blockChains)) {
-        ctx.response.body = 'get consensus'
-      } else {
-        ctx.response.body = 'no consensus get'
-      }
-    }))
-  }
-})
 
 app.use(async (ctx, next) => {
   console.log(`Process ${ctx.request.method} ${ctx.request.url}...`)

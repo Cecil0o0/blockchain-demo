@@ -5,7 +5,7 @@ import json from 'rollup-plugin-json'
 
 export default [
   {
-    input: 'src/test.js',
+    input: 'test/FunctionTest.js',
     output: {
       file: 'dist/test.js',
       format: 'cjs'
@@ -16,7 +16,7 @@ export default [
       json(),
       babel()
     ],
-    external: ['bignumber.js', 'js-sha256']
+    external: ['bignumber.js', 'js-sha256', 'fs', 'path']
   },
   {
     input: 'src/block-chain.js',
@@ -29,6 +29,7 @@ export default [
       resolve(),
       json(),
       babel()
-    ]
+    ],
+    external: ['fs', 'path']
   }
 ]

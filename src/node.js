@@ -12,6 +12,6 @@ export const NodeAction = {
   generate: (id, url) => {
     state.id = id
     state.url = url
-    return { ...state }
+    return Object.assign({}, state)
   }
 }

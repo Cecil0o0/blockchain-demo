@@ -1,1 +1,0 @@
-[{"blockNumber":0,"transactions":[{"receipientAddr":"甲","senderAddr":"乙","value":1},{"receipientAddr":"丙","senderAddr":"丁","value":0.5},{"receipientAddr":"甲","senderAddr":"丁","value":0.5}],"timestamp":1520694187039,"nonce":5,"prevBlock":"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}]

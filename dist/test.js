@@ -40,22 +40,42 @@ var Transaction = {
 var state$1 = {
   blockNumber: 0,
   transactions: [],
-  timestamp: Date.now(),
   nonce: 0,
-  prevBlock: ''
+  prevBlock: '',
+  timestamp: Date.now()
 };
 
 var Block = {
   generate: function generate(blockNumber, transactions, nonce, prevBLock) {
+    var isGenisis = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : false;
+
     state$1.blockNumber = blockNumber;
-    state$1.transactions = transactions;
-    state$1.timestamp = Date.now();
+    state$1.transactions = JSON.stringify(transactions);
     state$1.nonce = nonce;
     state$1.prevBlock = prevBLock;
+    state$1.timestamp = isGenisis ? new Date('2018-03-25 2:20').getTime() : Date.now();
     return Object.assign({}, state$1);
   },
   computeSha256: function computeSha256(state) {
     return sha.sha256(JSON.stringify(state));
+  }
+};
+
+/**
+ * 节点数据结构
+ * @id：节点id
+ * @url：节点url
+ */
+var state$2 = {
+  id: 0,
+  url: ''
+};
+
+var NodeAction = {
+  generate: function generate(id, url) {
+    state$2.id = id;
+    state$2.url = url;
+    return Object.assign({}, state$2);
   }
 };
 
@@ -79,83 +99,105 @@ var toConsumableArray = function (arr) {
 var COINBASE_SENDER = '<COINBASE>';
 var COINBASE_REWARD = 50;
 
-var difficulty = 4;
-var state$2 = {
+var difficulty = 2;
+var state$3 = {
   nodeId: 0,
   blocks: [],
+  nodes: [],
   transactionPool: [],
-  genesisBlock: Block.generate(0, [], 0, ''),
-  target: Math.pow(2, 256 - difficulty),
+  genesisBlock: Block.generate(0, [], 0, '', true),
+  target: Math.pow(2, 256 - difficulty).toExponential(15),
   storagePath: ''
 };
 
 var BlockChain = {
   // 初始化结点
   init: function init(id) {
-    state$2.nodeId = id;
-    state$2.storagePath = path.resolve(__dirname, '../data/', state$2.nodeId + '.blockchain');
-    state$2.blocks.push(state$2.genesisBlock);
-    return state$2;
+    state$3.nodeId = id;
+    state$3.storagePath = path.resolve(__dirname, '../data/', state$3.nodeId + '.blockchain');
+    state$3.blocks.push(state$3.genesisBlock);
+    return state$3;
   },
-
+  // 注册节点
+  register: function register(id, url) {
+    if (state$3.nodes.find(function (node) {
+      return node.id === id;
+    })) {
+      return false;
+    } else {
+      state$3.nodes.push(NodeAction.generate(id, url));
+      return true;
+    }
+  },
   // 加载存储区块链或初始化一个区块链
   load: function load() {
     try {
-      state$2.blocks = JSON.parse(fs.readFileSync(state$2.storagePath, 'utf-8'));
+      state$3.blocks = JSON.parse(fs.readFileSync(state$3.storagePath, 'utf-8'));
     } catch (e) {
       console.log('读取失败，初始化区块链');
-      state$2.blocks = [state$2.genesisBlock];
+      state$3.blocks = [state$3.genesisBlock];
     } finally {
       BlockChain.verify();
     }
   },
-
   // 存储区块链到本地
   save: function save() {
-    fs.writeFileSync(state$2.storagePath, JSON.stringify(state$2.blocks), 'utf-8');
+    var dirname = path.dirname(state$3.storagePath);
+    if (fs.existsSync(dirname)) {
+      fs.writeFileSync(state$3.storagePath, JSON.stringify(state$3.blocks), 'utf-8');
+    } else {
+      fs.mkdirSync(dirname);
+      fs.writeFileSync(state$3.storagePath, JSON.stringify(state$3.blocks), 'utf-8');
+    }
   },
-
   // 验证区块链是否合法
-  verify: function verify() {
-    if (!state$2.blocks.length) {
-      console.log('区块链不能为空');
-    }
-    if (JSON.stringify(state$2.genesisBlock) !== JSON.stringify(state$2.blocks[0])) {
-      throw new Error('初代区块链数据有误');
-    }
-    state$2.blocks.forEach(function (item, index) {
-      // 验证上一个区块
-      if (index > 0 && item.prevBlock !== Block.computeSha256(state$2.blocks[index - 1])) {
-        throw new Error('非法的上一级区块');
+  verify: function verify(blocks) {
+    try {
+      if (!blocks.length) {
+        throw new Error('blocks can\'t be empty !');
       }
-      //
-      if (!BlockChain.idPowValid(Block.computeSha256(item))) {
-        throw new Error('无效的PoW');
+      if (JSON.stringify(state$3.genesisBlock) !== JSON.stringify(blocks[0])) {
+        throw new Error('genesis block data error !');
       }
-    });
+      blocks.forEach(function (item, index) {
+        if (index === 0) {
+          // 跳过初代区块
+        } else {
+          // 验证上一个区块
+          if (item.prevBlock !== Block.computeSha256(blocks[index - 1])) {
+            throw new Error('invalid prev block sha256');
+          }
+          // 验证该区块工作量
+          if (!BlockChain.isPowValid(Block.computeSha256(item))) {
+            throw new Error('invalid PoW');
+          }
+        }
+      });
+      return true;
+    } catch (e) {
+      console.log(e);
+      return false;
+    }
   },
-
   // 获取state实例
   getIns: function getIns() {
-    return state$2;
+    return state$3;
   },
-
   // 提交交易
   submitTransaction: function submitTransaction(send, rec, val) {
-    state$2.transactionPool.push(Transaction.generate(send, rec, val));
+    state$3.transactionPool.push(Transaction.generate(send, rec, val));
   },
   // 清除交易
   clearTransactions: function clearTransactions() {
-    state$2.transactionPool = 0;
+    state$3.transactionPool = [];
   },
-
   // 获取交易池
   getTransactions: function getTransactions() {
-    return state$2.transactionPool.slice();
+    return state$3.transactionPool;
   },
   // 获取所有区块
   getBlocks: function getBlocks() {
-    return state$2.blocks.slice();
+    return state$3.blocks;
   },
   // 获取单个区块
   getBlockById: function getBlockById(id) {
@@ -164,50 +206,70 @@ var BlockChain = {
     } else {
       id = +id;
     }
-    if (+id < state$2.blocks.length) {
-      return state$2.blocks[id];
+    if (+id < state$3.blocks.length) {
+      return state$3.blocks[id];
     } else {
       return {};
     }
   },
-  // 添加区块链
-  append: function append(block) {
-    state$2.blocks.push(block);
+  // 获取所有节点
+  getNodes: function getNodes() {
+    return state$3.nodes.slice();
   },
-
   // 验证工作量
   isPowValid: function isPowValid(pow) {
     try {
-      if (!pow.startswitch('0x')) {
+      if (!pow.startsWith('0x')) {
         pow = '0x' + pow;
       }
-      return new BigNumber(pow).lessThanOrEqual(target);
+      pow = Number(pow).toExponential(15);
+      return new BigNumber(pow).isLessThanOrEqualTo(state$3.target);
     } catch (e) {
+      console.log(e);
       return false;
     }
   },
-
   // 挖矿
   mine: function mine() {
     var transactions = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
 
-    var prevBlock = state$2.blocks.slice(-1)[0] || {};
+    var prevBlock = state$3.blocks.slice(-1)[0] || {};
 
-    transactions = [Transaction.generate(COINBASE_SENDER, state$2.nodeId, COINBASE_REWARD)].concat(toConsumableArray(transactions));
+    transactions = [Transaction.generate(COINBASE_SENDER, state$3.nodeId, COINBASE_REWARD)].concat(toConsumableArray(transactions));
 
     var newBlock = Block.generate(prevBlock.blockNumber !== undefined ? prevBlock.blockNumber + 1 : 0, transactions.slice(), 0, Block.computeSha256(prevBlock));
     while (true) {
       var hash = Block.computeSha256(newBlock);
       console.log('mine with nonce ' + newBlock.nonce);
-      if (this.isPowValid(hash) || newBlock.nonce > 4) {
+      if (BlockChain.isPowValid(hash)) {
         console.log('found valid pow', hash);
         break;
       }
       newBlock.nonce++;
     }
 
-    this.append(newBlock);
+    state$3.blocks.push(newBlock);
+    state$3.transactionPool = [];
     return newBlock;
+  },
+  // 区块链共识
+  consensus: function consensus(blockChains) {
+    var maxLength = 0,
+        candidateIndex = -1;
+    blockChains.forEach(function (item, index) {
+      if (item.length > maxLength && BlockChain.verify(item)) {
+        maxLength = item.length;
+        candidateIndex = index;
+      }
+    });
+
+    if (candidateIndex > -1 && (maxLength >= state$3.blocks.length || !BlockChain.verify(state$3.blocks))) {
+      state$3.blocks = [].concat(toConsumableArray(blockChains[candidateIndex]));
+      BlockChain.save();
+      return true;
+    }
+
+    return false;
   }
 };
 
@@ -216,8 +278,8 @@ var testPow = function testPow() {
   console.log('验证工作量');
   var block = BlockChain.getIns().genesisBlock;
   var hash = Block.computeSha256(block);
-  console.log('计算得到的hash值（16进制）：' + hash);
-  console.log('工作量证明标准（16进制）：' + Number(BlockChain.getIns().target).toString(16));
+  console.log('计算得到的哈希值（16进制） ：' + hash);
+  console.log('工作量证明目标为（16进制） ：' + Number(BlockChain.getIns().target).toString(16));
   console.log('工作量是否有效：' + BlockChain.isPowValid(hash));
 };
 

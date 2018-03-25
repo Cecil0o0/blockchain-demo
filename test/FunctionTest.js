@@ -1,13 +1,13 @@
-import { BlockChain } from './block-chain'
-import { Block } from './block'
+import { BlockChain } from '../src/block-chain'
+import { Block } from '../src/block'
 
 // test pow
 const testPow = () => {
   console.log('验证工作量')
   const block = BlockChain.getIns().genesisBlock
   const hash = Block.computeSha256(block)
-  console.log('计算得到的hash值（16进制）：' + hash)
-  console.log('工作量证明标准（16进制）：' + Number(BlockChain.getIns().target).toString(16))
+  console.log('计算得到的哈希值（16进制） ：' + hash)
+  console.log('工作量证明目标为（16进制） ：' + Number(BlockChain.getIns().target).toString(16))
   console.log('工作量是否有效：' + BlockChain.isPowValid(hash))
 }
 
